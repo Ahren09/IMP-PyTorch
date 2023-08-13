@@ -1,0 +1,11 @@
+tests/
+logs/
+fewshot/data/omniglot
+fewshot/data/omniglot_split
+fewshot/data/things_split
+fewshot/data/tiered_imagenet_split
+.idea/
+__pycache__/
+*.pyc
+*.DS_Store
+*.csv
