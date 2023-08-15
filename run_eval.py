@@ -24,6 +24,7 @@ from fewshot.configs.tiered_imagenet_config import *
 from fewshot.data.data_factory import get_dataset
 from fewshot.data.episode import Episode
 from fewshot.data.mini_imagenet import MiniImageNetDataset
+from fewshot.data.omniglot import OmniglotDataset
 from fewshot.data.tiered_imagenet import TieredImageNetDataset
 
 from fewshot.models.basic import Protonet
