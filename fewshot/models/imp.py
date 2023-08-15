@@ -7,6 +7,7 @@ import torch.optim as optim
 from torch.autograd import Variable
 
 import const
+from arguments import args
 from fewshot.models.model_factory import RegisterModel
 from fewshot.models.basic import Protonet
 from fewshot.models.utils import *
@@ -37,9 +38,9 @@ class IMPModel(Protonet):
         bsize = protos.size()[0]
         dimension = protos.size()[2]
 
-        zero_count = Variable(torch.zeros(bsize, 1)).to(const.device)
+        zero_count = Variable(torch.zeros(bsize, 1)).to(args.device)
 
-        d_radii = Variable(torch.ones(bsize, 1), requires_grad=False).to(const.device)
+        d_radii = Variable(torch.ones(bsize, 1), requires_grad=False).to(args.device)
 
         if cluster_type == 'labeled':
             d_radii = d_radii * torch.exp(self.log_sigma_l)
@@ -47,9 +48,9 @@ class IMPModel(Protonet):
             d_radii = d_radii * torch.exp(self.log_sigma_u)
 
         if ex is None:
-            new_proto = self.base_distribution.data.to(const.device)
+            new_proto = self.base_distribution.data.to(args.device)
         else:
-            new_proto = ex.unsqueeze(0).unsqueeze(0).to(const.device)
+            new_proto = ex.unsqueeze(0).unsqueeze(0).to(args.device)
 
         protos = torch.cat([protos, new_proto], dim=1)
         radii = torch.cat([radii, d_radii], dim=1)
@@ -103,7 +104,7 @@ class IMPModel(Protonet):
             weighted cross entropy such that we have an "or" function
             across prototypes in the class of each query
         """
-        targets = targets.to(const.device)
+        targets = targets.to(args.device)
         # determine index of closest in-class prototype for each query
 
         """ONLY keep positions corresponding to the right labels"""
@@ -120,7 +121,7 @@ class IMPModel(Protonet):
             class_logits[class_mask.repeat(logits.size(0), 1)] = logits[class_mask.repeat(logits.size(0), 1)].data
             _, best_in_class = torch.max(class_logits, dim=1)
             weights[range(0, targets.size(0)), best_in_class] = 1.
-        loss = weighted_loss(logits, best_targets.to(const.device), weights.to(const.device))
+        loss = weighted_loss(logits, best_targets.to(args.device), weights.to(args.device))
         return loss.mean()
 
     def forward(self,
@@ -142,14 +143,14 @@ class IMPModel(Protonet):
 
         # create probabilities for points
         _, idx = np.unique(batch.y_train.squeeze().data.cpu().numpy(), return_inverse=True)
-        prob_train = one_hot(batch.y_train, nClusters).to(const.device) # (1, 30, 5), deterministic
+        prob_train = one_hot(batch.y_train, nClusters).to(args.device) # (1, 30, 5), deterministic
 
         # make initial radii for labeled clusters
         bsize = h_train.size()[0]
-        radii = Variable(torch.ones(bsize, nClusters)).to(const.device) * torch.exp(self.log_sigma_l)
+        radii = Variable(torch.ones(bsize, nClusters)).to(args.device) * torch.exp(self.log_sigma_l)
 
         # Before creating new clusters, each cluster corresponds to a label
-        support_labels = torch.arange(0, nClusters).to(const.device).long()
+        support_labels = torch.arange(0, nClusters).to(args.device).long()
 
         # compute initial prototypes from labeled examples
         protos = self._compute_protos(h_train, prob_train)
@@ -190,7 +191,7 @@ class IMPModel(Protonet):
                 h_unlabel = self._run_forward(batch.x_unlabel)
 
                 h_all = torch.cat([h_train, h_unlabel], dim=1)
-                unlabeled_flag = torch.LongTensor([-1]).to(const.device)
+                unlabeled_flag = torch.LongTensor([-1]).to(args.device)
 
                 for i, ex in enumerate(h_unlabel[0]):
                     distances = self._compute_distances(tensor_proto, ex.data)
@@ -203,10 +204,10 @@ class IMPModel(Protonet):
                 # add new, unlabeled clusters to the total probability
                 if nClusters > nTrainClusters:
                     unlabeled_clusters = torch.zeros(prob_train.size(0), prob_train.size(1), nClusters - nTrainClusters)
-                    prob_train = torch.cat([prob_train, Variable(unlabeled_clusters).to(const.device)], dim=2)
+                    prob_train = torch.cat([prob_train, Variable(unlabeled_clusters).to(args.device)], dim=2)
 
-                prob_unlabel = assign_cluster_radii(Variable(tensor_proto).to(const.device), h_unlabel, radii) # (1, 50, 7)
-                prob_unlabel_nograd = Variable(prob_unlabel.data, requires_grad=False).to(const.device)
+                prob_unlabel = assign_cluster_radii(Variable(tensor_proto).to(args.device), h_unlabel, radii) # (1, 50, 7)
+                prob_unlabel_nograd = Variable(prob_unlabel.data, requires_grad=False).to(args.device)
                 prob_all = torch.cat([Variable(prob_train.data, requires_grad=False), prob_unlabel_nograd], dim=1)
 
                 # Recompute mean of all protos
@@ -216,7 +217,7 @@ class IMPModel(Protonet):
 
             else:
 
-                protos = self._compute_protos(h_train, Variable(prob_train.data, requires_grad=False).to(const.device))
+                protos = self._compute_protos(h_train, Variable(prob_train.data, requires_grad=False).to(args.device))
                 protos, radii, support_labels = self.delete_empty_clusters(protos, prob_train, radii, support_labels)
 
 
@@ -267,7 +268,7 @@ class IMPModel(Protonet):
             h_all = h_unlabel
             protos = h_unlabel[0][0].unsqueeze(0).unsqueeze(0)
 
-            radii = Variable(torch.ones(1, 1)).to(const.device) * torch.exp(self.log_0_l)
+            radii = Variable(torch.ones(1, 1)).to(args.device) * torch.exp(self.log_0_l)
             nClusters = 1
             protos_clusters = []
 
@@ -279,9 +280,9 @@ class IMPModel(Protonet):
                         nClusters, tensor_proto, radii = self._add_cluster(nClusters, tensor_proto, radii, 'labeled',
                                                                            ex.data)
 
-                prob_unlabel = assign_cluster_radii(Variable(tensor_proto).to(const.device), h_unlabel, radii)
+                prob_unlabel = assign_cluster_radii(Variable(tensor_proto).to(args.device), h_unlabel, radii)
 
-                prob_unlabel_nograd = Variable(prob_unlabel.data, requires_grad=False).to(const.device)
+                prob_unlabel_nograd = Variable(prob_unlabel.data, requires_grad=False).to(args.device)
                 prob_all = prob_unlabel_nograd
                 protos = self._compute_protos(h_all, prob_all)
 

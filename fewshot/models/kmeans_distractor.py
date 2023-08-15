@@ -17,7 +17,7 @@ class KMeansDistractorModel(IMPModel):
     def __init__(self, config, data):
         super(KMeansDistractorModel, self).__init__(config, data)
 
-        self.base_distribution = Variable(0*torch.randn(1, 1, config.dim)).to(const.device)
+        self.base_distribution = Variable(0*torch.randn(1, 1, config.dim)).to(args.device)
 
     def _add_cluster(self, nClusters, protos, radii, cluster_type='unlabeled'):
         """
@@ -33,12 +33,12 @@ class KMeansDistractorModel(IMPModel):
         bsize = protos.size()[0]
         dimension = protos.size()[2]
 
-        new_proto = Variable(self.base_distribution.data).to(const.device)
+        new_proto = Variable(self.base_distribution.data).to(args.device)
 
         protos = torch.cat([protos, new_proto], dim=1)
-        zero_count = Variable(torch.zeros(bsize, 1)).to(const.device)
+        zero_count = Variable(torch.zeros(bsize, 1)).to(args.device)
 
-        d_radii = Variable(torch.ones(bsize, 1), requires_grad=True).to(const.device)
+        d_radii = Variable(torch.ones(bsize, 1), requires_grad=True).to(args.device)
 
         if cluster_type == 'unlabeled':
             d_radii = d_radii * torch.exp(self.log_sigma_u)
@@ -63,16 +63,16 @@ class KMeansDistractorModel(IMPModel):
         h_train = self._run_forward(batch.x_train)
         h_test = self._run_forward(batch.x_test)
 
-        prob_train = one_hot(batch.y_train, nClusters).to(const.device)
+        prob_train = one_hot(batch.y_train, nClusters).to(args.device)
 
         protos = self._compute_protos(h_train, prob_train)
 
         bsize = h_train.size()[0]
 
-        radii = torch.exp(self.log_sigma_l) * Variable(torch.ones(bsize, nClusters), requires_grad=False).to(const.device)
+        radii = torch.exp(self.log_sigma_l) * Variable(torch.ones(bsize, nClusters), requires_grad=False).to(args.device)
 
-        support_labels = torch.arange(0, nClusters).to(const.device).long()
-        unlabeled_flag = torch.LongTensor([-1]).to(const.device)
+        support_labels = torch.arange(0, nClusters).to(args.device).long()
+        unlabeled_flag = torch.LongTensor([-1]).to(args.device)
 
         #deal with semi-supervised data
         if batch.x_unlabel is not None:
@@ -81,14 +81,14 @@ class KMeansDistractorModel(IMPModel):
 
             #add in distractor cluster centered at zero
             nClusters, protos, radii = self._add_cluster(nClusters, protos, radii, 'unlabeled')
-            prob_train = one_hot(batch.y_train, nClusters).to(const.device)
+            prob_train = one_hot(batch.y_train, nClusters).to(args.device)
             support_labels = torch.cat([support_labels, unlabeled_flag], dim=0)
 
             #perform some clustering steps
             for ii in range(self.config.num_cluster_steps):
 
                 prob_unlabel = assign_cluster_radii(protos, h_unlabel, radii)
-                prob_unlabel_nograd = Variable(prob_unlabel.data, requires_grad=False).to(const.device)
+                prob_unlabel_nograd = Variable(prob_unlabel.data, requires_grad=False).to(args.device)
 
                 prob_all = torch.cat([prob_train, prob_unlabel_nograd], dim=1)
                 protos = self._compute_protos(h_all, prob_all)

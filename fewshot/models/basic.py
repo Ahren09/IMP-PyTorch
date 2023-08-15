@@ -6,6 +6,7 @@ import torchvision.models as models
 from torch.autograd import Variable
 
 import const
+from arguments import args
 from fewshot.models.model_factory import RegisterModel
 from fewshot.models.utils import *
 
@@ -35,13 +36,13 @@ class Protonet(nn.Module):
         if config.learn_sigma_u:
             self.log_sigma_u = nn.Parameter(log_sigma_u, requires_grad=True)
         else:
-            self.log_sigma_u = torch.tensor(log_sigma_u, device=const.device, requires_grad=True)
+            self.log_sigma_u = torch.tensor(log_sigma_u, device=args.device, requires_grad=True)
 
         log_sigma_l = torch.log(torch.FloatTensor([config.init_sigma_l]))
         if config.learn_sigma_l:
             self.log_sigma_l = nn.Parameter(log_sigma_l, requires_grad=True)
         else:
-            self.log_sigma_l = Variable(log_sigma_l, requires_grad=True).to(const.device)
+            self.log_sigma_l = Variable(log_sigma_l, requires_grad=True).to(args.device)
 
         x_dim = [config.num_channel]
         hid_dim = 64
@@ -92,22 +93,22 @@ class Protonet(nn.Module):
 
     def _process_batch(self, batch, super_classes=False):
         """Convert np arrays to variable"""
-        x_train = Variable(torch.from_numpy(batch.x_train).type(torch.FloatTensor), requires_grad=False).to(const.device)
-        x_test = Variable(torch.from_numpy(batch.x_test).type(torch.FloatTensor), requires_grad=False).to(const.device)
+        x_train = Variable(torch.from_numpy(batch.x_train).type(torch.FloatTensor), requires_grad=False).to(args.device)
+        x_test = Variable(torch.from_numpy(batch.x_test).type(torch.FloatTensor), requires_grad=False).to(args.device)
 
         if batch.x_unlabel is not None and batch.x_unlabel.size > 0:
-            x_unlabel = Variable(torch.from_numpy(batch.x_unlabel).type(torch.FloatTensor), requires_grad=False).to(const.device)
-            y_unlabel = Variable(torch.from_numpy(batch.y_unlabel.astype(np.int64)), requires_grad=False).to(const.device)
+            x_unlabel = Variable(torch.from_numpy(batch.x_unlabel).type(torch.FloatTensor), requires_grad=False).to(args.device)
+            y_unlabel = Variable(torch.from_numpy(batch.y_unlabel.astype(np.int64)), requires_grad=False).to(args.device)
         else:
             x_unlabel = None
             y_unlabel = None
 
         if super_classes:
-            labels_train = Variable(torch.from_numpy(batch.y_train_str[:,1]).type(torch.LongTensor), requires_grad=False).unsqueeze(0).to(const.device)
-            labels_test = Variable(torch.from_numpy(batch.y_test_str[:,1]).type(torch.LongTensor), requires_grad=False).unsqueeze(0).to(const.device)
+            labels_train = Variable(torch.from_numpy(batch.y_train_str[:,1]).type(torch.LongTensor), requires_grad=False).unsqueeze(0).to(args.device)
+            labels_test = Variable(torch.from_numpy(batch.y_test_str[:,1]).type(torch.LongTensor), requires_grad=False).unsqueeze(0).to(args.device)
         else:
-            labels_train = Variable(torch.from_numpy(batch.y_train.astype(np.int64)[:,:,1]),requires_grad=False).to(const.device)
-            labels_test = Variable(torch.from_numpy(batch.y_test.astype(np.int64)[:,:,1]),requires_grad=False).to(const.device)
+            labels_train = Variable(torch.from_numpy(batch.y_train.astype(np.int64)[:,:,1]),requires_grad=False).to(args.device)
+            labels_test = Variable(torch.from_numpy(batch.y_test.astype(np.int64)[:,:,1]),requires_grad=False).to(args.device)
 
         return Episode(x_train,
                                      labels_train,
@@ -172,7 +173,7 @@ class Protonet(nn.Module):
             _, max_indices = torch.max(probs, 2)    # [B, N]
             nClusters = probs.size()[2]
             max_indices = one_hot(max_indices, nClusters)
-            counts = torch.sum(max_indices, 1).to(const.device)
+            counts = torch.sum(max_indices, 1).to(args.device)
         else:
             counts = torch.sum(probs, 1)
         return counts

@@ -1,6 +1,7 @@
 import torch
 
 import const
+from arguments import args
 
 
 def log_sum_exp(value, weights, dim=None, keepdim=False):
@@ -27,7 +28,7 @@ def class_select(logits, target):
                                                .cuda(device)
                                                .eq(target.data.repeat(num_classes, 1).t()))
     else:
-        one_hot_mask = torch.arange(0, num_classes).repeat(batch_size, 1).to(const.device).eq(target.data.repeat(num_classes, 1).t())
+        one_hot_mask = torch.arange(0, num_classes).repeat(batch_size, 1).to(args.device).eq(target.data.repeat(num_classes, 1).t())
     return logits.masked_select(one_hot_mask)
     
 def weighted_loss(logits, targets, weights):

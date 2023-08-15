@@ -8,6 +8,7 @@ from torch.autograd import Variable
 import pdb
 
 import const
+from arguments import args
 
 
 def one_hot(indices, depth, dim=-1, cumulative=True):
@@ -157,7 +158,7 @@ def assign_cluster_radii_limited(cluster_centers, data, radii, target_labels):
     logits = compute_logits_radii(cluster_centers, data, radii) # [B, N, K]
 
 
-    class_logits = (torch.min(logits).data-100)*torch.ones(logits.data.size()).to(const.device)
+    class_logits = (torch.min(logits).data-100)*torch.ones(logits.data.size()).to(args.device)
     class_logits[target_labels.unsqueeze(0)] = logits.data[target_labels.unsqueeze(0)]
     prob = F.softmax(Variable(class_logits), dim=-1)
     return prob

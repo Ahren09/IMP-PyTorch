@@ -23,7 +23,7 @@ class CRPModel(Protonet):
             dataset=None):
         super(CRPModel, self).__init__(config, data)
 
-        self.base_distribution = Variable(0.0 * torch.randn(1, 1, config.dim)).to(const.device)
+        self.base_distribution = Variable(0.0 * torch.randn(1, 1, config.dim)).to(args.device)
 
     def _add_cluster(self,
             nClusters,
@@ -48,24 +48,24 @@ class CRPModel(Protonet):
         bsize = protos.size()[0] # 1
         dimension = protos.size()[2] # 64
 
-        zero_count = Variable(torch.zeros(bsize, 1)).to(const.device)
+        zero_count = Variable(torch.zeros(bsize, 1)).to(args.device)
         if ex is None:
             counts = torch.cat([counts, zero_count], dim=1) # Count # examples for each cluster
         else:
             counts[0, -1] = 1
             counts = torch.cat([counts, zero_count], dim=1)
 
-        d_radii = Variable(torch.ones(bsize, 1), requires_grad=False).to(const.device) # (1, 1)
+        d_radii = Variable(torch.ones(bsize, 1), requires_grad=False).to(args.device) # (1, 1)
         d_radii = d_radii * (torch.exp(self.log_sigma_u) + torch.exp(self.log_sigma_l))
 
-        new_proto = Variable(self.base_distribution.data.to(const.device))
+        new_proto = Variable(self.base_distribution.data.to(args.device))
         if use_mean:
             new_proto = torch.mean(protos, dim=1).unsqueeze(
-                0)  # + 0.01*Variable(torch.randn(1, 1, protos.shape[-1])).to(const.device)
+                0)  # + 0.01*Variable(torch.randn(1, 1, protos.shape[-1])).to(args.device)
 
         if ex is not None:
             protos[:, -1, :] = torch.exp(self.log_sigma_l) * new_proto + torch.exp(self.log_sigma_u) * Variable(
-                ex.unsqueeze(0).unsqueeze(0).to(const.device)) / (torch.exp(self.log_sigma_l) + torch.exp(self.log_sigma_u) * nc)
+                ex.unsqueeze(0).unsqueeze(0).to(args.device)) / (torch.exp(self.log_sigma_l) + torch.exp(self.log_sigma_u) * nc)
         protos = torch.cat([protos, new_proto], dim=1)
         radii = torch.cat([radii, d_radii], dim=1)
         return nClusters, protos, counts, radii
@@ -82,7 +82,7 @@ class CRPModel(Protonet):
         nClusters = counts.size()[1]
 
         crp_prior_old = torch.ones_like(counts)
-        crp_prior_new = Variable(torch.FloatTensor([ALPHA])).to(const.device)
+        crp_prior_new = Variable(torch.FloatTensor([ALPHA])).to(args.device)
         crp_prior_new = torch.cat([crp_prior_new.unsqueeze(0)] * nClusters, 1)
         indices = counts.view(-1).nonzero()
         if torch.numel(indices) != 0:
@@ -117,12 +117,12 @@ class CRPModel(Protonet):
 
         nClusters = len(np.unique(y_train_np)) # 5
         kShot = int(batch.y_train.shape[1] / nClusters)
-        prob_train = one_hot(batch.y_train, nClusters).to(const.device) # deterministic. 1 for that class and 0 otherwise
+        prob_train = one_hot(batch.y_train, nClusters).to(args.device) # deterministic. 1 for that class and 0 otherwise
 
         protos = self._compute_protos(h_train, prob_train)
         radii = (torch.exp(self.log_sigma_l) * torch.exp(self.log_sigma_u) / (
                     torch.exp(self.log_sigma_l) + torch.exp(self.log_sigma_u) * kShot)) * Variable(
-            torch.ones(bsize, nClusters), requires_grad=False).to(const.device) # (1, 5)
+            torch.ones(bsize, nClusters), requires_grad=False).to(args.device) # (1, 5)
 
         total_prob = prob_train
         mu0 = torch.mean(protos, dim=1).unsqueeze(0) # (1, 1, 64), mean of all protos
@@ -141,9 +141,9 @@ class CRPModel(Protonet):
 
             # add one more cluster to the total probability tracked
             total_prob = torch.cat(
-                [total_prob, Variable(torch.zeros(total_prob.size()[0], total_prob.size()[1], 1)).to(const.device)], dim=2)
+                [total_prob, Variable(torch.zeros(total_prob.size()[0], total_prob.size()[1], 1)).to(args.device)], dim=2)
             prob_train = torch.cat(
-                [prob_train, Variable(torch.zeros(prob_train.size()[0], prob_train.size()[1], 1)).to(const.device)], dim=2)
+                [prob_train, Variable(torch.zeros(prob_train.size()[0], prob_train.size()[1], 1)).to(args.device)], dim=2)
 
             for ii in range(self.config.num_cluster_steps):
                 all_unlabel_probs = None
@@ -161,11 +161,11 @@ class CRPModel(Protonet):
                         nClusters, protos, counts, radii = self._add_cluster(nClusters, protos, counts, radii,
                                                                              ex=ex.data, nc=eps)
                         prob_train = torch.cat(
-                            [prob_train, Variable(torch.zeros(prob_train.size()[0], prob_train.size()[1], 1)).to(const.device)],
+                            [prob_train, Variable(torch.zeros(prob_train.size()[0], prob_train.size()[1], 1)).to(args.device)],
                             dim=2)
                         all_unlabel_probs = torch.cat([all_unlabel_probs, torch.zeros(all_unlabel_probs.size()[0],
                                                                                       all_unlabel_probs.size()[1],
-                                                                                      1).to(const.device)], dim=2)
+                                                                                      1).to(args.device)], dim=2)
 
                         priors = self._compute_priors(counts)
 

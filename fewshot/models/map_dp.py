@@ -18,7 +18,7 @@ class MapDPModel(IMPModel):
     def __init__(self, config, data):
         super(MapDPModel, self).__init__(config, data)
 
-        self.base_distribution = Variable(torch.zeros(1,1,config.dim)).to(const.device)
+        self.base_distribution = Variable(torch.zeros(1,1,config.dim)).to(args.device)
 
     def _compute_priors(self, counts):
         """
@@ -30,7 +30,7 @@ class MapDPModel(IMPModel):
         ALPHA = self.config.ALPHA
         nClusters = counts.size()[1]
         crp_prior_old = counts
-        crp_prior_new = Variable(torch.FloatTensor([ALPHA])).to(const.device)
+        crp_prior_new = Variable(torch.FloatTensor([ALPHA])).to(args.device)
         crp_prior_new = torch.cat([crp_prior_new.unsqueeze(0)]*nClusters, 1)
         indices = counts.view(-1).nonzero()
         if torch.numel(indices) != 0:
@@ -62,10 +62,10 @@ class MapDPModel(IMPModel):
         bsize = protos.size()[0]
         dimension = protos.size()[2]
 
-        zero_count = Variable(torch.zeros(bsize, 1)).to(const.device)
+        zero_count = Variable(torch.zeros(bsize, 1)).to(args.device)
         counts = torch.cat([counts, zero_count], dim=1)
 
-        d_radii = Variable(torch.ones(bsize, 1), requires_grad=False).to(const.device)
+        d_radii = Variable(torch.ones(bsize, 1), requires_grad=False).to(args.device)
         d_radii = d_radii*(torch.exp(self.log_sigma_u)+torch.exp(self.log_sigma_l))
 
         new_proto = mu0.clone()
@@ -89,13 +89,13 @@ class MapDPModel(IMPModel):
         h_train = self._run_forward(xs)
         h_test = self._run_forward(xq)
 
-        prob_train = one_hot(batch.y_train, nClusters).to(const.device)
+        prob_train = one_hot(batch.y_train, nClusters).to(args.device)
 
         if batch.x_unlabel is None:
             protos_clusters = [self._compute_protos(h_train, prob_train)]
 
         bsize = h_train.size()[0]
-        radii = Variable(torch.ones(bsize, nClusters)).to(const.device) * torch.exp(self.log_sigma_l)
+        radii = Variable(torch.ones(bsize, nClusters)).to(args.device) * torch.exp(self.log_sigma_l)
 
         target_labels = torch.arange(0, nClusters).long()
         protos = self._compute_protos(h_train[:,:,:], prob_train[:,:,:])
@@ -115,7 +115,7 @@ class MapDPModel(IMPModel):
         for ii in range(self.config.num_cluster_steps):
             if ii == 0:
                 nClusters, protos, counts, radii  = self._add_cluster(nClusters, protos, counts, radii,mu0)
-                total_prob = torch.cat([total_prob, Variable(torch.zeros(total_prob.size()[0], total_prob.size()[1], 1)).to(const.device)],dim=2)
+                total_prob = torch.cat([total_prob, Variable(torch.zeros(total_prob.size()[0], total_prob.size()[1], 1)).to(args.device)],dim=2)
                 target_labels = torch.cat([target_labels, torch.LongTensor([-1])],dim=0)
 
             if batch.x_unlabel is not None:
@@ -128,14 +128,14 @@ class MapDPModel(IMPModel):
                     _, max_val = torch.max(cluster_prob,dim=-1)
 
                     if i+h_train.size()[1]>=total_prob.size()[1]:
-                        total_prob = torch.cat([total_prob, one_hot(max_val, nClusters).to(const.device)],dim=1)
+                        total_prob = torch.cat([total_prob, one_hot(max_val, nClusters).to(args.device)],dim=1)
                     else:
-                        total_prob[0,i+h_train.size()[1],:] = one_hot(max_val, nClusters).to(const.device)
+                        total_prob[0,i+h_train.size()[1],:] = one_hot(max_val, nClusters).to(args.device)
 
                     if max_val[0].data[0] == nClusters:
                         nClusters, protos, counts, radii  = self._add_cluster(nClusters, protos, counts, radii, mu0)
                         target_labels = torch.cat([target_labels, torch.LongTensor([-1])],dim=0)
-                        total_prob = torch.cat([total_prob, Variable(torch.zeros(total_prob.size()[0], total_prob.size()[1], 1)).to(const.device)],dim=2)
+                        total_prob = torch.cat([total_prob, Variable(torch.zeros(total_prob.size()[0], total_prob.size()[1], 1)).to(args.device)],dim=2)
                     
 
         final_prob = Variable(total_prob.data, requires_grad=False)
@@ -149,12 +149,12 @@ class MapDPModel(IMPModel):
         labels = batch.y_test.data
         labels[labels >= nInitialClusters] = -1
 
-        support_targets = labels[0, :, None] == target_labels.to(const.device)
-        loss = self.loss(logits, support_targets, target_labels.to(const.device))
+        support_targets = labels[0, :, None] == target_labels.to(args.device)
+        loss = self.loss(logits, support_targets, target_labels.to(args.device))
 
         # map support predictions back into classes to check accuracy
         _, support_preds = torch.max(logits.data, dim=1)
-        y_pred = target_labels.to(const.device)[support_preds]
+        y_pred = target_labels.to(args.device)[support_preds]
 
         acc_val = torch.eq(y_pred, labels[0]).float().mean()
 

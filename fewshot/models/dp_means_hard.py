@@ -30,17 +30,17 @@ class DPMeansHardModel(IMPModel):
         h_train = self._run_forward(batch.x_train)  # (1, 5, 64)
         h_test = self._run_forward(batch.x_test)  # (1, 35, 64)
 
-        prob_train = one_hot(batch.y_train, nClusters).to(const.device)
+        prob_train = one_hot(batch.y_train, nClusters).to(args.device)
 
         if batch.x_unlabel is None:
             protos_clusters = [self._compute_protos(h_train, prob_train)]
 
         # this is unused, but maximizes function sharing
         bsize = h_train.size()[0]  # 1
-        radii = Variable(torch.ones(bsize, nClusters)).to(const.device) * torch.exp(self.log_sigma_l)
+        radii = Variable(torch.ones(bsize, nClusters)).to(args.device) * torch.exp(self.log_sigma_l)
 
         # initialize prototypes and target labels
-        target_labels = torch.arange(0, nClusters).long().to(const.device)
+        target_labels = torch.arange(0, nClusters).long().to(args.device)
         protos = self._compute_protos(h_train[:, :, :], prob_train[:, :, :])
 
         # estimate lamda
@@ -84,7 +84,7 @@ class DPMeansHardModel(IMPModel):
 
             nTrainClusters = nClusters
             if batch.x_unlabel is not None:
-                h_unlabel = self._run_forward(batch.x_unlabel.to(const.device))
+                h_unlabel = self._run_forward(batch.x_unlabel.to(args.device))
                 h_all = torch.cat([h_train, h_unlabel], dim=1)
                 # get assignments for unlabeled examples (hard assignments)
                 for i, ex in enumerate(h_unlabel[0]):
@@ -92,7 +92,7 @@ class DPMeansHardModel(IMPModel):
                     if torch.min(distances) > lamda:
                         nClusters, tensor_proto, radii = self._add_cluster(nClusters, tensor_proto, radii,
                                                                            cluster_type='unlabeled', ex=ex.data)
-                        target_labels = torch.cat([target_labels, torch.LongTensor([-1]).to(const.device)], dim=0)
+                        target_labels = torch.cat([target_labels, torch.LongTensor([-1]).to(args.device)], dim=0)
                         assignments[i + batch.y_train.size()[1]] = nClusters - 1
                     else:
                         assignments[i + batch.y_train.size()[1]] = torch.argmin(distances)
@@ -100,11 +100,11 @@ class DPMeansHardModel(IMPModel):
             else:
                 h_all = h_train
 
-        final_assigns = one_hot(Variable(assignments.unsqueeze(0)), nClusters).to(const.device)
+        final_assigns = one_hot(Variable(assignments.unsqueeze(0)), nClusters).to(args.device)
         final_protos = self._compute_protos(h_all, final_assigns)
 
         protos, radii, target_labels = self.delete_empty_clusters(final_protos, final_assigns, radii,
-                                                                  target_labels.to(const.device))
+                                                                  target_labels.to(args.device))
 
         logits = compute_logits(protos, h_test).squeeze()
 

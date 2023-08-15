@@ -6,6 +6,7 @@ import torch.nn.functional as F
 import torch.optim as optim
 from torch.autograd import Variable
 
+from arguments import args
 from fewshot.models.model_factory import RegisterModel
 from fewshot.models.imp import IMPModel
 from fewshot.models.utils import *
@@ -26,11 +27,11 @@ class SoftNN(IMPModel):
         h_train = self._run_forward(xs)
         h_test = self._run_forward(xq)
 
-        prob_train = one_hot(Variable(torch.arange(0,nClusters)).unsqueeze(0), nClusters).to(const.device) # (1, 30, 30)
+        prob_train = one_hot(Variable(torch.arange(0,nClusters)).unsqueeze(0), nClusters).to(args.device) # (1, 30, 30)
         protos = self._compute_protos(h_train, prob_train) # (1, 30, 64)
 
         bsize = h_train.size()[0]
-        radii = Variable(torch.ones(bsize, nClusters)).to(const.device) * torch.exp(self.log_sigma_l)
+        radii = Variable(torch.ones(bsize, nClusters)).to(args.device) * torch.exp(self.log_sigma_l)
 
         support_labels = batch.y_train.data[0].long()
 

@@ -6,6 +6,7 @@ import torch.nn.functional as F
 import torch.optim as optim
 from torch.autograd import Variable
 
+from arguments import args
 from fewshot.models.model_factory import RegisterModel
 from fewshot.models.basic import Protonet
 from fewshot.models.utils import *
@@ -24,12 +25,12 @@ class KMeansRefine(Protonet):
         h_train = self._run_forward(xs) # (1, 5, 1, 28, 28) -> (1, 5, 64)
         h_test = self._run_forward(xq) # (1, 5, 1, 28, 28) -> (1, 35, 64)
 
-        prob_train = one_hot(batch.y_train, nClusters).to(const.device) # eye(5)
+        prob_train = one_hot(batch.y_train, nClusters).to(args.device) # eye(5)
 
         protos = self._compute_protos(h_train, prob_train) # (1, 5, 64)
 
         bsize = h_train.size()[0]
-        radii = Variable(torch.ones(bsize, nClusters)).to(const.device) * torch.exp(self.log_sigma_l)
+        radii = Variable(torch.ones(bsize, nClusters)).to(args.device) * torch.exp(self.log_sigma_l)
 
         #deal with semi-supervised data
         if batch.x_unlabel is not None:
@@ -40,7 +41,7 @@ class KMeansRefine(Protonet):
             for ii in range(self.config.num_cluster_steps):
 
                 prob_unlabel = assign_cluster_radii(protos, h_unlabel, radii) # (1, 50, 5)
-                prob_unlabel_nograd = Variable(prob_unlabel.data, requires_grad=False).to(const.device)
+                prob_unlabel_nograd = Variable(prob_unlabel.data, requires_grad=False).to(args.device)
 
                 prob_all = torch.cat([prob_train, prob_unlabel_nograd], dim=1) # (1, 55, 5)
                 protos = self._compute_protos(h_all, prob_all) # Sum to 1 in dimension -1
